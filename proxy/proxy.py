@@ -23,18 +23,18 @@ def bl_parse(a):
         cidr_flag = False
     else:
         dom = a[:cidr_flag]
-        sig = int(a[(cidr_flag + 1):]
+        sig = int(a[(cidr_flag + 1):])
     
     dom = dom.split(".")
     for i in range(len(dom)):
-        dom[i] = format(dom[i], 'b') # convert segment to binary string
+        dom[i] = format(int(dom[i]), 'b') # convert segment to binary string
 
         temp = ""
         if len(dom[i]) < 8:
-            for i in range(8 - len(dom[i])):
+            for j in range(8 - len(dom[i])):
                 temp += "0"
         dom[i] = temp + dom[i] # convert to 8 bit binary string
-    dom = dom.join("")
+    dom = "".join(dom)
 
     if cidr_flag:
         return dom[:sig] # cutoff at sig if cidr
@@ -43,8 +43,13 @@ def bl_parse(a):
 def bl_check(host):
     bl_file = "blacklist.txt"
 
-    with open(bl_file, 'r') as f:
-        b_list = f.readlines() # read file into list
+    # b_list = ['127.0.0.1/24']
+    try:
+        with open(bl_file, 'r') as f:
+            b_list = f.readlines() # read file into list
+    except IOError:
+        print "??? %s not found; unable to check for blacklisting" % (bl_file,)
+        return False # return not blacklisted
 
     ip = socket.gethostbyname(host) # get ip of client requested url
     ip = bl_parse(ip)
@@ -54,7 +59,7 @@ def bl_check(host):
         c = bl_parse(cidr)
 
         for i in range(len(c)):
-            if c[i] != ip[i]
+            if c[i] != ip[i]:
                flag = False
                break 
 
@@ -77,7 +82,11 @@ def request_handler(conn, addr):
         port = int(req[1].split(":")[2])
 
     if bl_check(host): # checking if domain is blacklisted
+        conn.send("HTTP/1.1 403.6 Forbidden\r\nServer: proxy_server Python/2.7\r\n\r\n")
+        conn.send("""<html>403 Forbidden\nIP has been blacklisted by proxy server\n</html>""")
         print "??? Domain referred to is blacklisted and will not be accessed"
+        print "??? Closing connection to client"
+        conn.close()
         print "??? Exiting thread"
         print "??? --------------------------------------------------\n\n"
         exit()
