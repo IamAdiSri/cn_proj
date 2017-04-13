@@ -2,7 +2,7 @@
 
 ##########################
 # PROXY SERVER
-# Last Modified: 12th April, 2017
+# Last Modified: 13th April, 2017
 ##########################
 
 import os
@@ -12,6 +12,56 @@ import sys
 import threading
 import time
 # import requests
+
+cache = {}
+
+def bl_parse(a):
+    cidr_flag = a.find("/")
+
+    if cidr_flag == -1:
+        dom = a
+        cidr_flag = False
+    else:
+        dom = a[:cidr_flag]
+        sig = int(a[(cidr_flag + 1):]
+    
+    dom = dom.split(".")
+    for i in range(len(dom)):
+        dom[i] = format(dom[i], 'b') # convert segment to binary string
+
+        temp = ""
+        if len(dom[i]) < 8:
+            for i in range(8 - len(dom[i])):
+                temp += "0"
+        dom[i] = temp + dom[i] # convert to 8 bit binary string
+    dom = dom.join("")
+
+    if cidr_flag:
+        return dom[:sig] # cutoff at sig if cidr
+    return dom
+
+def bl_check(host):
+    bl_file = "blacklist.txt"
+
+    with open(bl_file, 'r') as f:
+        b_list = f.readlines() # read file into list
+
+    ip = socket.gethostbyname(host) # get ip of client requested url
+    ip = bl_parse(ip)
+
+    for cidr in b_list:
+        flag = True
+        c = bl_parse(cidr)
+
+        for i in range(len(c)):
+            if c[i] != ip[i]
+               flag = False
+               break 
+
+        if flag:
+            return flag
+    
+    return flag
 
 def request_handler(conn, addr):
     client_req = conn.recv(1024)
@@ -25,6 +75,12 @@ def request_handler(conn, addr):
         port = 80
     else:
         port = int(req[1].split(":")[2])
+
+    if bl_check(host): # checking if domain is blacklisted
+        print "??? Domain referred to is blacklisted and will not be accessed"
+        print "??? Exiting thread"
+        print "??? --------------------------------------------------\n\n"
+        exit()
 
     # headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
     # r = requests.post(url)
@@ -110,6 +166,7 @@ if __name__ == "__main__":
     host = ""
     sock = socket.socket()
     sock.bind((host, port))
+    print ">>> Proxy server started; listening on port %s" % (port, )
     sock.listen(5)
 
     while (1):
